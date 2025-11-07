@@ -17,9 +17,7 @@ bot_token = os.getenv('BOT_TOKEN')
 REQUIRED_CHANNEL = "devil_devo"
 INSTA_PAGE_LINK = "https://www.instagram.com/phenoartgallery"
 
-# ✅ Flask app for Render
 app = Flask(__name__)
-
 client = TelegramClient('bot_session', api_id, api_hash)
 
 # Memory
@@ -32,7 +30,6 @@ login_flow_messages = {}
 user_bulk_photos = {}
 user_2fa_data = {}
 
-# ✅ Flask Routes
 @app.route('/')
 def health():
     return "Bot running!", 200
@@ -41,7 +38,7 @@ def health():
 def status():
     return f"Active users: {len(user_states)}", 200
 
-# ✅ Async Functions (SAME AS BEFORE)
+# ✅ सभी async functions (पहले जैसे ही)
 
 async def delete_old_messages(user_id, event, skip_last=0, preserve_login=False):
     if user_id not in old_messages or not old_messages[user_id]:
@@ -113,7 +110,7 @@ PRIVACY_POLICY = """
 • Acknowledge no data storage
 """
 
-# ✅ Command Handlers (SAME AS BEFORE)
+# ✅ सभी command handlers (पहले जैसे ही)
 
 @client.on(events.NewMessage(pattern='/start'))
 async def start_command(event):
@@ -363,7 +360,6 @@ async def handle_all_messages(event):
     user_id = event.sender_id
     msg = event.message
     
-    # PHOTO HANDLER
     if msg.photo and user_id in user_credentials:
         if user_states.get(user_id) == 'awaiting_single_photo':
             await handle_single_upload(event, user_id)
@@ -387,20 +383,17 @@ async def handle_all_messages(event):
                 await delete_old_messages(user_id, event, skip_last=1, preserve_login=True)
                 return
     
-    # TEXT HANDLER
     if msg.text:
         text = msg.raw_text.strip().lower()
         if text.startswith('/'):
             return
         
-        # Custom caption
         if user_states.get(user_id) == 'awaiting_custom_caption':
             custom_caption = event.raw_text.strip()
             caption = f"{custom_caption}\n\n🤖✨ Posted via TG bot: @insta_frwd_bot 🤖✨"
             await handle_bulk_upload(event, user_id, caption)
             return
         
-        # Username
         if user_states.get(user_id) == 'awaiting_insta_username':
             insta_username = text
             if ' ' in insta_username or '@' in insta_username:
@@ -415,7 +408,6 @@ async def handle_all_messages(event):
             await delete_old_messages(user_id, event, skip_last=1, preserve_login=True)
             return
         
-        # Password
         if user_states.get(user_id) == 'awaiting_insta_password':
             insta_username = user_states.get(f"{user_id}_username")
             insta_password = str(text)
@@ -492,7 +484,6 @@ async def handle_all_messages(event):
                 print(f"❌ Login error: {str(e)}")
             return
         
-        # 2FA CODE
         if user_states.get(user_id) == 'awaiting_2fa_code':
             otp = text.strip()
             if not otp.isdigit() or len(otp) != 6:
@@ -614,19 +605,24 @@ async def handle_bulk_upload(event, user_id, caption):
                 os.remove(path)
         user_bulk_photos.pop(user_id, None)
 
-# ✅ Bot + Flask Threading
+# ✅ FIXED: Bot start करने के लिए async function
 
-def run_bot():
+async def run_bot():
     try:
-        client.start(bot_token=bot_token)
+        await client.start(bot_token=bot_token)
         print("✓ Telegram bot connected!")
-        client.run_until_disconnected()
+        await client.run_until_disconnected()
     except Exception as e:
         print(f"❌ Bot error: {e}")
 
+# ✅ FIXED: Main function में async loop run करो
+
+def start_bot_sync():
+    asyncio.run(run_bot())
+
 if __name__ == "__main__":
     # Bot को background thread में run करो
-    bot_thread = threading.Thread(target=run_bot, daemon=False)
+    bot_thread = threading.Thread(target=start_bot_sync, daemon=False)
     bot_thread.start()
     
     print("\n" + "="*60)
