@@ -38,8 +38,6 @@ def health():
 def status():
     return f"Active users: {len(user_states)}", 200
 
-# ✅ सभी async functions (पहले जैसे ही)
-
 async def delete_old_messages(user_id, event, skip_last=0, preserve_login=False):
     if user_id not in old_messages or not old_messages[user_id]:
         return
@@ -109,8 +107,6 @@ PRIVACY_POLICY = """
 • Take responsibility for security
 • Acknowledge no data storage
 """
-
-# ✅ सभी command handlers (पहले जैसे ही)
 
 @client.on(events.NewMessage(pattern='/start'))
 async def start_command(event):
@@ -605,36 +601,18 @@ async def handle_bulk_upload(event, user_id, caption):
                 os.remove(path)
         user_bulk_photos.pop(user_id, None)
 
-# ✅ FIXED: Bot start करने के लिए async function
+# ✅ Worker async start - 100% correct for Railway
 
 async def run_bot():
-    try:
-        await client.start(bot_token=bot_token)
-        print("✓ Telegram bot connected!")
-        await client.run_until_disconnected()
-    except Exception as e:
-        print(f"❌ Bot error: {e}")
-
-# ✅ FIXED: Main function में async loop run करो
+    await client.start(bot_token=bot_token)
+    print("✓ Telegram bot connected!")
+    await client.run_until_disconnected()
 
 def start_bot_sync():
     asyncio.run(run_bot())
 
 if __name__ == "__main__":
-    # Bot को background thread में run करो
     bot_thread = threading.Thread(target=start_bot_sync, daemon=False)
     bot_thread.start()
-    
-    print("\n" + "="*60)
-    print("🚀 TELEGRAM-INSTAGRAM BOT - RENDER DEPLOYMENT")
-    print("="*60)
-    print(f"✓ All Features Active")
-    print(f"✓ Single Post: ✅")
-    print(f"✓ Bulk Post: ✅")
-    print(f"✓ 2FA Support: ✅")
-    print(f"✓ Persistent Sessions: ✅")
-    print("\n⏸️  Stop: Ctrl+C\n")
-    print("="*60 + "\n")
-
     port = int(os.getenv('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
