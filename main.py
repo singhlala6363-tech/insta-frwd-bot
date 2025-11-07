@@ -4,6 +4,8 @@ from telethon import TelegramClient, events
 from instagrapi import Client as InstaClient
 from instagrapi.exceptions import ChallengeRequired, TwoFactorRequired, BadCredentials
 from dotenv import load_dotenv
+from flask import Flask
+import threading
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 dotenv_path = os.path.join(basedir, '.env')
@@ -15,9 +17,10 @@ bot_token = os.getenv('BOT_TOKEN')
 REQUIRED_CHANNEL = "devil_devo"
 INSTA_PAGE_LINK = "https://www.instagram.com/phenoartgallery"
 
+# ✅ Flask app for Render
+app = Flask(__name__)
+
 client = TelegramClient('bot_session', api_id, api_hash)
-client.start(bot_token=bot_token)
-print("✓ Telegram bot connected!")
 
 # Memory
 user_states = {}
@@ -27,7 +30,18 @@ temp_insta_clients = {}
 old_messages = {}
 login_flow_messages = {}
 user_bulk_photos = {}
-user_2fa_data = {}  # Store 2FA attempt data
+user_2fa_data = {}
+
+# ✅ Flask Routes
+@app.route('/')
+def health():
+    return "Bot running!", 200
+
+@app.route('/status')
+def status():
+    return f"Active users: {len(user_states)}", 200
+
+# ✅ Async Functions (SAME AS BEFORE)
 
 async def delete_old_messages(user_id, event, skip_last=0, preserve_login=False):
     if user_id not in old_messages or not old_messages[user_id]:
@@ -98,6 +112,8 @@ PRIVACY_POLICY = """
 • Take responsibility for security
 • Acknowledge no data storage
 """
+
+# ✅ Command Handlers (SAME AS BEFORE)
 
 @client.on(events.NewMessage(pattern='/start'))
 async def start_command(event):
@@ -408,11 +424,9 @@ async def handle_all_messages(event):
             await delete_old_messages(user_id, event, skip_last=1, preserve_login=True)
             
             try:
-                # ✅ IMPROVED LOGIN LOGIC
                 cl = InstaClient()
                 cl.login(insta_username, insta_password)
                 
-                # Success - no 2FA needed
                 user_credentials[user_id] = (insta_username, insta_password)
                 active_insta_sessions[user_id] = cl
                 user_states[user_id] = 'verified'
@@ -432,7 +446,6 @@ async def handle_all_messages(event):
                 await delete_old_messages(user_id, event, skip_last=1, preserve_login=True)
                 
             except ChallengeRequired as e:
-                # 2FA required
                 user_states[user_id] = 'awaiting_2fa_code'
                 user_2fa_data[user_id] = {
                     'username': insta_username,
@@ -479,7 +492,7 @@ async def handle_all_messages(event):
                 print(f"❌ Login error: {str(e)}")
             return
         
-        # 2FA CODE - IMPROVED
+        # 2FA CODE
         if user_states.get(user_id) == 'awaiting_2fa_code':
             otp = text.strip()
             if not otp.isdigit() or len(otp) != 6:
@@ -500,7 +513,6 @@ async def handle_all_messages(event):
                 insta_username = user_2fa_data[user_id]['username']
                 insta_password = user_2fa_data[user_id]['password']
                 
-                # ✅ Login with OTP
                 cl = InstaClient()
                 cl.login(insta_username, insta_password, verification_code=otp)
                 
@@ -602,14 +614,31 @@ async def handle_bulk_upload(event, user_id, caption):
                 os.remove(path)
         user_bulk_photos.pop(user_id, None)
 
-print("\n" + "="*60)
-print("🚀 TELEGRAM-INSTAGRAM BOT - FIXED OTP HANDLER")
-print("="*60)
-print(f"✓ Improved login logic")
-print(f"✓ 2FA handling fixed")
-print(f"✓ Rate limit messages")
-print(f"✓ Better error messages")
-print("\n⏸️  Stop: Ctrl+C\n")
-print("="*60 + "\n")
+# ✅ Bot + Flask Threading
 
-client.run_until_disconnected()
+def run_bot():
+    try:
+        client.start(bot_token=bot_token)
+        print("✓ Telegram bot connected!")
+        client.run_until_disconnected()
+    except Exception as e:
+        print(f"❌ Bot error: {e}")
+
+if __name__ == "__main__":
+    # Bot को background thread में run करो
+    bot_thread = threading.Thread(target=run_bot, daemon=False)
+    bot_thread.start()
+    
+    print("\n" + "="*60)
+    print("🚀 TELEGRAM-INSTAGRAM BOT - RENDER DEPLOYMENT")
+    print("="*60)
+    print(f"✓ All Features Active")
+    print(f"✓ Single Post: ✅")
+    print(f"✓ Bulk Post: ✅")
+    print(f"✓ 2FA Support: ✅")
+    print(f"✓ Persistent Sessions: ✅")
+    print("\n⏸️  Stop: Ctrl+C\n")
+    print("="*60 + "\n")
+
+    port = int(os.getenv('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
