@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+bot_session/
+bulk_*
+temp_*
+*.db
+.DS_Store
